@@ -5,6 +5,8 @@ const ejs = require("ejs")
 const mongoose = require("mongoose")
 const app = express()
 const md5 = require("md5")
+const bcrypt = require("bcrypt")
+const saltRounds = 10
 
 mongoose.connect("mongodb://localhost:27017/Level-1-Security")
 
@@ -28,17 +30,19 @@ app.get("/register", (req, res) => {
 })
 
 app.post("/register", (req, res) => {
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
-    })
-    newUser.save(function (err) {
-        if (!err) {
-            res.render("secrets")
-        }
-        else {
-            console.log(err)
-        }
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        })
+        newUser.save(function (err) {
+            if (!err) {
+                res.render("secrets")
+            }
+            else {
+                console.log(err)
+            }
+        })
     })
 })
 
@@ -48,7 +52,7 @@ app.get("/login", (req, res) => {
 
 app.post("/login", (req, res) => {
     const username = req.body.username
-    const password = md5(req.body.password)
+    const password = req.body.password
 
     User.findOne({ email: username }, function (err, results) {
         if (err) {
@@ -56,9 +60,11 @@ app.post("/login", (req, res) => {
         }
         else {
             if (results) {
-                if (results.password === password) {
-                    res.render("secrets")
-                }
+                bcrypt.compare(password, results.password, function (err, pwRes) {
+                    if (pwRes === true) {
+                        res.render("secrets")
+                    }
+                })
             }
         }
     })
